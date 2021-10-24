@@ -1,0 +1,5 @@
+package aibot.structure;
+
+public class SchematicsList{
+    String test="bXNjaAF4nE2ODWrDMAyFX+wkDRll7CA5Sk8wSsmPWjIyKzheSw9ceolST7GTUhkhW09Pn5Eh00hN/UsoG3YHR5M71PjoaGptP7qeDYB8qBsaJpTf68w+R9GyOdOVLcqRL2Qrwx3hs7F9d6LqJRY/f6YNe/KJrSOLLZ/JHge+VKfakaz/koQCEjko1HyVSKVKZ4MYKtHyVAhdvfHe3yV3yWxKV5N/xE1IFneGRVGY7VJSiEUHjjD8c9XeOTpydOTcFo4OHGEEU/wg/gESyEFW";
+}

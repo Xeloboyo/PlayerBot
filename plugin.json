@@ -1,7 +1,7 @@
 {
-  "name": "ExamplePlugin",
-  "author": "Anuke",
-  "main": "example.ExamplePlugin",
-  "description": "A plugin to demonstrate some basic features.",
+  "name": "AI Bot",
+  "author": "Xelo",
+  "main": "aibot.AIGlobalControl",
+  "description": "A plugin to simulate noobs.",
   "version": 1.0
 }
