@@ -201,12 +201,14 @@ public class AIGlobalControl extends Plugin{
         return null;
     }
 
+    //'random' names
     public static String[] names = {
         "jumpydawning","blank_clothing","FriendlyCoyote","AmuckHelper","nobody_3","extrovertedbasis50","pot_of_chests","zpq3","didactic_illness","TheGreyBreaker",
         "pasta","Rozen","Xan","KloxEdge","frogixre","versana","evan","3444","incornge","Woodmoll","Bixel","Iris","Tammy","Wroomy","Pischer","Butters","blank","Caede",
         "Claire","itzgo","jassiKrystal","Lincle","Aide","kitkatsna","cophee","Lomis","Wintea","απάτη","ghlyfee","hrithik","A Phủ","дный","kane","artfex","anook","akimov","anyone",
         "dead","dima","discorde","sfdlk","453ggf","dedeg3f","?????","[router]","eggggg","egg","beri3","jasf","infernium","dat on","空条","Лааадно","Скатовод","сделать","освящённый",
-        "號香蕉","copika","不錯","瑞恩","冠冠","我也要去了","一起来不用","Гаппи","человек","горощик","router","Ilya247","pineapple on pizza","Xelo","[red]D[green]o[blue]t"
+        "號香蕉","copika","不錯","瑞恩","冠冠","我也要去了","一起来不用","Гаппи","человек","горощик","router","Ilya247","pineapple on pizza","Xelo","[red]D[green]o[blue]t","eldoof","glennFolkent",
+        "sk1139","bluefox","eod","shar","farmerthanos","extravection","theanacondaguy","goobi","ash","thirst","moop","largekey","sonka","elag","BOULDER"
     };
 
 }
