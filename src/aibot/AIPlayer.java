@@ -40,6 +40,8 @@ public class AIPlayer{
     public Vec2 point = new Vec2();
     public boolean demandsClosed = false;
     boolean defaultTask = false;
+    public static int maxPlanSize = 300;
+    public BuildPlan[] bp = new BuildPlan[maxPlanSize];
 
     AIPlayer(String name, Color color, String ip){
         this(name,color,ip,new Idler());
@@ -121,10 +123,13 @@ public class AIPlayer{
                     movement.stop();
                 }
             }
-            buildPlans.filter(b->b.progress<1);
+            buildPlans.filter(b->b!=null && b.progress<1);
             buildPlans.filter(b->{
                 if(!b.breaking){
                     return true;
+                }
+                if(world==null || world.tile(b.x,b.y)==null){
+                    return false;
                 }
                 return world.tile(b.x,b.y).build!=null;
             });
@@ -186,8 +191,12 @@ public class AIPlayer{
         }
         lastUpdate++;
         if(lastUpdate>=updateDelay){
+            bp = new BuildPlan[Math.min(maxPlanSize,buildPlans.size)];
+            for(int i = 0;i<bp.length;i++){
+                bp[i] = buildPlans.get(i);
+            }
             lastUpdate=0;
-            Vars.netServer.clientSnapshot(
+            NetServer.clientSnapshot(
             controlling,
             1,
             controlling.unit().id,
@@ -205,7 +214,7 @@ public class AIPlayer{
             shooting,
             chatting,
             building,
-            buildPlans.toArray(BuildPlan.class),
+            bp,
             0,
             0,
             1,

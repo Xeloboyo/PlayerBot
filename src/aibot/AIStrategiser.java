@@ -9,9 +9,11 @@ import arc.func.*;
 import arc.graphics.*;
 import arc.math.*;
 import arc.struct.*;
+import arc.util.*;
 import mindustry.content.*;
 import mindustry.game.*;
 import mindustry.game.EventType.*;
+import mindustry.game.Schematic.*;
 import mindustry.gen.*;
 import mindustry.type.*;
 import mindustry.world.*;
@@ -45,6 +47,11 @@ public class AIStrategiser{
     public ArrayList<Structure> structures= new ArrayList<>();
     //analysers
     public TeamStats teamStats;
+    //base planning
+    public ChunkedStructureMap map;
+
+    //constants
+    public static Seq<Item> mineItems = Seq.with(Items.copper, Items.lead, Items.titanium, Items.thorium);
 
     public AIStrategiser(Team team){
         this.team = team;
@@ -85,6 +92,7 @@ public class AIStrategiser{
         teamStats=mapper.teamAnalyser.get(team);
         teamStats.get(Items.copper).unlocked= true;
         teamStats.get(Items.lead).unlocked= true;
+        map = new ChunkedStructureMap();
     }
 
     public void update(){
@@ -101,7 +109,7 @@ public class AIStrategiser{
             }
             int cutoff=750;
 
-            Seq<ItemStats> low = teamStats.filter(items->items.amount<cutoff && team.data().mineItems.contains(items.item));
+            Seq<ItemStats> low = teamStats.filter(items->items.amount<cutoff && mineItems.contains(items.item));
             for(ItemStats i:low){
                 if(mreq.get(i.item)==null && i.unlocked){
                     MiningRequest mr = new MiningRequest(this,MiningRequest.defaultUrgency,2,i.item,cutoff);
@@ -135,6 +143,9 @@ public class AIStrategiser{
                 OrePatch closest = null;
                 float dis = 99999999;
                 for(OrePatch patch:oa.orePatches){
+                    if(patch.contains.size>500){
+                        continue;
+                    }
                     int mdis = 9999999;
                     for(CoreBuild cb:team.cores()){
                         Tile coretile = cb.tile;
@@ -148,11 +159,17 @@ public class AIStrategiser{
                     }
                 }
                 if(closest!=null){
-                    Structure testStructure = new Structure(team);
-                    for(Tile tile:closest.contains){
-                        testStructure.addBlock(Blocks.copperWall, tile.x, tile.y);
+                    Structure testStructure = new Structure(this);
+                    for(int i = closest.minx;i<=closest.maxx;i++){
+                        for(int j = closest.miny;j<=closest.maxy;j++){
+                           if(j%2==0 && (i%5==0 || i%5==2)){
+                               if(Build.validPlace(Blocks.mechanicalDrill,team,i,j,0)){
+                                   testStructure.addBlock(Blocks.mechanicalDrill, i,j);
+                               }
+                           }
+                        }
                     }
-                    structures.add(testStructure);
+                    addStructure(testStructure);
                     BuildRequest breq= new BuildRequest(this,(b)->0f,1,testStructure);
                     requests.add(breq);
                 }
@@ -176,15 +193,48 @@ public class AIStrategiser{
         requests.filter(req->!req.complete);
     }
 
+    public int drawPopup(int x,int y, int duration){
+        int lh = 27;
+        int currentheight = lh;
+        Call.infoPopup("[#"+team.color+"]"+team.name+" AI",duration, Align.topLeft,y,x,0,0);
+        Call.infoPopup("has "+(controllers.size)+" agents and "+requests.size+" requests",duration, Align.topLeft,y+currentheight,x,0,0); currentheight +=lh;
+        for(AIRequest req:requests){
+            String text = req.type.getSimpleName()+" [white]"+req.controllers.size+"/"+req.recommendedWorkers+" P [gray], exp: T-[red]"+(req.tickcreated+req.expirytime-totaltick);
+            Call.infoPopup(text,duration, Align.topLeft,y+currentheight,x+50,0,0); currentheight +=lh;
+        };
+        return currentheight;
+    }
+
     public void testMakePath(int fromx, int fromy){
-        ItemLineStructure its = new ItemLineStructure(fromx,fromy,team.core(),team);
+        ItemLineStructure its = new ItemLineStructure(fromx,fromy,team.core(),new Item[]{Items.copper},this);
         BuildRequest breq= new BuildRequest(this,(b)->0f,1,its);
+        if(its.complete()){
+            return;
+        }
         requests.add(breq);
-        structures.add(its);
+        addStructure(its);
+    }
+
+    public void addStructure(Structure structure){
+        if(structure.blocks.isEmpty()){
+            return;
+        }
+        for(var block: structure.blocks){
+            map.addBlock(block);
+        }
+        structures.add(structure);
     }
 
     public TeamStats getTeamStats(){
         return teamStats;
+    }
+
+    public void onBlockDestroyed(Building build,Player p){
+    }
+
+    public void onBlockCreated(Building build){
+        //add it to the list....
+        map.addBlock(new Stile(build.block,build.tile.x,build.tile.y, build.config(), (byte)build.rotation));
     }
 
     //used by controllers, produced by strategisers, high level tasks for ai.
@@ -334,6 +384,7 @@ public class AIStrategiser{
         public Structure structure;
         //is true will build all at once, like if a player is placing a schematic or conveyors, otherwise one at a time like if a player is improvising.
         public boolean fastbuild = true;
+        {{type = BuildRequest.class;}}
         public BuildRequest(AIStrategiser ai, Floatf<BuildRequest> urgency, int recommendedWorkers, Structure structure){
             super(ai, urgency, recommendedWorkers);
             this.structure=structure;

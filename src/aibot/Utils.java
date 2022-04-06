@@ -97,6 +97,7 @@ public class Utils{
         }
     }
 
+
     public static boolean insideValidTerritory(Block type, Team team, int x, int y){
         if(!state.rules.editor){
             //find closest core, if it doesn't match the team, placing is not legal
@@ -120,6 +121,17 @@ public class Utils{
             }
         }
         return true;
+    }
+
+    public static String formatMillis(long millis){
+        if(millis<2000){
+            return millis+" ms";
+        }
+        else if(millis<1000*60){
+            return (millis/1000)+"."+((millis%1000)/10)+" sec";
+        }else{
+            return (millis/60000)+" min "+((millis/1000)%60)+" sec";
+        }
     }
 
     static {
@@ -184,12 +196,12 @@ public class Utils{
     public static class StopWatch{
         long millis;
         public StopWatch(){
-            millis = Time.millis();
+            millis = System.currentTimeMillis();
         }
 
         //idk what to call it
         public long click(){
-            long diff = Time.millis()-millis;
+            long diff = System.currentTimeMillis()-millis;
             millis+=diff;
             return diff;
         }

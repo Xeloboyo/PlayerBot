@@ -15,11 +15,13 @@ public class WorldMapper{
     ObjectMap<String,WorldAnalyser> analysers = new ObjectMap<>();
     World world;
     public int tick = 0;
+    public long startuptime = 0;
     public ThreatAnalyser threatAnalyser;
     public OreAnalyser oreAnalyser;
     public TeamAnalyser teamAnalyser;
 
     public WorldMapper(World world){
+        StopWatch startup = new StopWatch();
         this.world = world;
         threatAnalyser = new ThreatAnalyser();
         oreAnalyser = new OreAnalyser(new Item[]{
@@ -44,11 +46,16 @@ public class WorldMapper{
             }
             wa.startuptime += stopWatch.click();
         }
+        startuptime = startup.click();
+    }
+
+    boolean called = false;
+    public void callStatsDebug(){
+        called = true;
+        Call.sendMessage("[blue]World Mapper[gray] took [white]"+ Utils.formatMillis(startuptime)+"[gray] to complete startup" );
         for(String key: analysers.keys()){
-            Call.sendMessage("[gray][World Analyser] [pink]'"+key+"' [gray]took [white]"+ Strings.formatMillis(analysers.get(key).startuptime)+"[gray] to complete analysis" );
+            Call.sendMessage("[gray][World Analyser] [pink]'"+key+"' [gray]took [white]"+ Utils.formatMillis(analysers.get(key).startuptime)+"[gray] to complete analysis" );
         }
-
-
     }
 
     public <T extends WorldAnalyser> T analyser(Class<T> type, String name){
@@ -60,6 +67,9 @@ public class WorldMapper{
     }
 
     public void update(){
+        if(!called){
+            callStatsDebug();
+        }
         for(String key: analysers.keys()){
             analysers.get(key).update();
         }

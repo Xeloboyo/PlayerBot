@@ -191,17 +191,19 @@ public class ThreatAnalyser extends WorldAnalyser{
 
     HashSet<BaseTurretBuild> contained = new HashSet<>();
     public ThreatTile[][] threatening;
+    ThreatTile empty = new ThreatTile(-1,-1);
 
     public ThreatTile get(int x,int y){
+        if(x<=0||y<=0 || x>=threatening.length|| y>=threatening[0].length){
+            return empty;
+        }
         if(threatening[x][y]==null){
             threatening[x][y] = new ThreatTile(x,y);
         }
         return threatening[x][y];
     }
     public ThreatTile get(float x,float y){
-        if(x<=0||y<=0 || x>=threatening.length*Vars.tilesize|| y>=threatening[0].length*Vars.tilesize){
-            return null;
-        }
+
         return get((int)(x/Vars.tilesize),(int)(y/Vars.tilesize));
     }
 
@@ -284,7 +286,7 @@ public class ThreatAnalyser extends WorldAnalyser{
        int maxX = (int)(origin.x+bt.range());
        int minY = (int)(origin.y-bt.range());
        int maxY = (int)(origin.y+bt.range());
-       float r2 = (bt.range()*bt.range())/64.0f+1;
+       float r2 = ((bt.range()+1)*(bt.range()+1))/64.0f;
        minX = Math.max(0,minX);
        minY = Math.max(0,minY);
        maxX = Math.min(Vars.world.width()-1,maxX);

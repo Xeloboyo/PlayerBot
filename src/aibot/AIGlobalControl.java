@@ -12,7 +12,8 @@ import mindustry.game.*;
 import mindustry.game.EventType.*;
 import mindustry.gen.*;
 import mindustry.mod.*;
-import mindustry.world.blocks.*;
+import mindustry.type.*;
+import mindustry.world.*;
 
 import java.util.*;
 
@@ -22,6 +23,7 @@ public class AIGlobalControl extends Plugin{
     public static WorldMapper mapper;
     public static Seq<AIPlayer> players= new Seq<>();
     public static ObjectMap<Team, AIStrategiser> ais = new ObjectMap<>();
+    public static int lastPopup = 0;
     //called when game initializes
     @Override
     public void init(){
@@ -35,6 +37,16 @@ public class AIGlobalControl extends Plugin{
                 Team team = netServer.assignTeam(player.controlling);
                 player.add(team);
                 ais.get(team).addPlayer(player);
+            }
+            ObjectSet<Building> searched = new ObjectSet<>();
+            for(Tile t:world.tiles){
+                if(t.build!=null && !searched.contains(t.build)){
+                    searched.add(t.build);
+                    var v= ais.get(t.build.team);
+                    if(v!=null){
+                        v.onBlockCreated(t.build);
+                    }
+                }
             }
         });
 
@@ -53,6 +65,10 @@ public class AIGlobalControl extends Plugin{
             if(e.breaking){
                 return;
             }
+            var v= ais.get(e.team);
+            if(v!=null){
+                v.onBlockCreated(e.tile.build);
+            }
             mapper.onBlockCreated(e.tile.build);
         });
 
@@ -61,13 +77,21 @@ public class AIGlobalControl extends Plugin{
                 return;
             }
             if(e.tile.build != null){
-                ConstructBlock.ConstructBuild cb = (ConstructBlock.ConstructBuild)e.tile.build;
-                mapper.onBlockDestroyed(cb);
+                var v= ais.get(e.team);
+                if(v!=null){
+                    v.onBlockDestroyed(e.tile.build,e.unit.getPlayer());
+                }
+                mapper.onBlockDestroyed(e.tile.build);
             }
         });
         Events.on(BlockDestroyEvent.class, e->{
-            ConstructBlock.ConstructBuild cb = (ConstructBlock.ConstructBuild)e.tile.build;
-            mapper.onBlockDestroyed(cb);
+            if(e.tile.build != null){
+                var v= ais.get(e.tile.build.team);
+                if(v!=null){
+                    v.onBlockDestroyed(e.tile.build,null);
+                }
+                mapper.onBlockDestroyed(e.tile.build);
+            }
         });
 
         Events.run(Trigger.update,()->{
@@ -86,6 +110,14 @@ public class AIGlobalControl extends Plugin{
             }
             for(Entry<Team, AIStrategiser> ai:ais){
                 ai.value.update();
+            }
+            lastPopup--;
+            if(lastPopup<0){
+                lastPopup = 120;
+                int ypos = 100;
+                for(Entry<Team, AIStrategiser> ai:ais){
+                    ypos += ai.value.drawPopup(0,ypos,lastPopup/60);
+                }
             }
         });
         Vars.mods.getScripts().runConsole("this.ai = function(){return Vars.mods.getMod(\"ai-bot\").main;}");
@@ -124,6 +156,14 @@ public class AIGlobalControl extends Plugin{
             }
         });
 
+        handler.register("fillstuff", "<team>", "fills core with a bit of stuff.", (args, player) -> {
+            Team team = getTeam(args[0]);
+            if(team!=null){
+               for(Item i:content.items()) {
+                   team.core().items.add(i,team.core().storageCapacity);
+               }
+            }
+        });
     }
 
     public static void addPlayer(AIPlayer p, Team team){
@@ -166,7 +206,7 @@ public class AIGlobalControl extends Plugin{
         "pasta","Rozen","Xan","KloxEdge","frogixre","versana","evan","3444","incornge","Woodmoll","Bixel","Iris","Tammy","Wroomy","Pischer","Butters","blank","Caede",
         "Claire","itzgo","jassiKrystal","Lincle","Aide","kitkatsna","cophee","Lomis","Wintea","απάτη","ghlyfee","hrithik","A Phủ","дный","kane","artfex","anook","akimov","anyone",
         "dead","dima","discorde","sfdlk","453ggf","dedeg3f","?????","[router]","eggggg","egg","beri3","jasf","infernium","dat on","空条","Лааадно","Скатовод","сделать","освящённый",
-        "號香蕉","copika","不錯","瑞恩","冠冠","我也要去了","一起来不用","一起来不用","Гаппи","человек","горощик","router","Ilya247","pineapple on pizza","Xelo","[red]D[green]o[blue]t"
+        "號香蕉","copika","不錯","瑞恩","冠冠","我也要去了","一起来不用","Гаппи","человек","горощик","router","Ilya247","pineapple on pizza","Xelo","[red]D[green]o[blue]t"
     };
 
 }
