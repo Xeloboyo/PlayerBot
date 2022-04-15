@@ -7,6 +7,7 @@ import aibot.structure.*;
 import aibot.structure.ChunkedStructureMap.*;
 import aibot.structure.ChunkedStructureMap.StructureBlock.*;
 import aibot.tasks.*;
+import aibot.util.*;
 import arc.math.*;
 import arc.math.geom.*;
 import arc.struct.*;
@@ -22,7 +23,7 @@ import static aibot.AIGlobalControl.mapper;
 //defends buildings lazily by shooting at enemies
 //may also complain when a resource is low.
 //builds drills (maybe)
-public class    Idler extends AIController{
+public class Idler extends AIController{
     public float idledelay = 0;
     public boolean mining = false;
     public boolean shooting = false;
@@ -139,7 +140,7 @@ public class    Idler extends AIController{
                 if(request.fastbuild){
                     Stile[] plan = new Stile[sc.blocks.size];
                     for(int i = 0; i < sc.blocks.size; i++){
-                        plan[i] = sc.blocks.get(i).block;
+                        plan[i] = sc.blocks.get(i).stile;
                     }
                     building = sc.blocks.get(0);
                     player.interruptTask(new BuildTask(player, plan), () -> {
@@ -150,7 +151,7 @@ public class    Idler extends AIController{
                         if(!sb.pending && sb.status == BuildStatus.NOT_STARTED){
                             sb.pending = true;
                             building = sb;
-                            player.interruptTask(new BuildTask(player, sb.block), () -> {
+                            player.interruptTask(new BuildTask(player, sb.stile), () -> {
                                 building = null;
                             });
                         }

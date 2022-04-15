@@ -1,5 +1,6 @@
 package aibot;
 
+import aibot.AIStrategiser.*;
 import aibot.structure.*;
 import arc.*;
 import arc.graphics.*;
@@ -19,11 +20,14 @@ import java.util.*;
 
 import static mindustry.Vars.*;
 
+
 public class AIGlobalControl extends Plugin{
     public static WorldMapper mapper;
     public static Seq<AIPlayer> players= new Seq<>();
     public static ObjectMap<Team, AIStrategiser> ais = new ObjectMap<>();
     public static int lastPopup = 0;
+
+    public static Object test = null;
     //called when game initializes
     @Override
     public void init(){
@@ -34,6 +38,7 @@ public class AIGlobalControl extends Plugin{
                 ais.put(t.team,new AIStrategiser(t.team));
             });
             for(AIPlayer player:players){
+                player.shooting = false;
                 Team team = netServer.assignTeam(player.controlling);
                 player.add(team);
                 ais.get(team).addPlayer(player);
@@ -71,6 +76,12 @@ public class AIGlobalControl extends Plugin{
             }
             mapper.onBlockCreated(e.tile.build);
         });
+        Events.on(ConfigEvent.class, e->{
+            var v= ais.get(e.tile.team);
+            if(v!=null){
+                v.onBlockConfigured(e.tile);
+            }
+        });
 
         Events.on(BlockBuildBeginEvent.class, e->{
             if(!e.breaking){
@@ -82,8 +93,14 @@ public class AIGlobalControl extends Plugin{
                     v.onBlockDestroyed(e.tile.build,e.unit.getPlayer());
                 }
                 mapper.onBlockDestroyed(e.tile.build);
+            }else if(state.rules.infiniteResources){
+                var v= ais.get(e.team);
+                if(v!=null){
+                    v.map.removeBlock(e.tile.x, e.tile.y);
+                }
             }
         });
+
         Events.on(BlockDestroyEvent.class, e->{
             if(e.tile.build != null){
                 var v= ais.get(e.tile.build.team);
@@ -120,9 +137,12 @@ public class AIGlobalControl extends Plugin{
                 }
             }
         });
-        Vars.mods.getScripts().runConsole("this.ai = function(){return Vars.mods.getMod(\"ai-bot\").main;}");
-        ConveyorPathfinder.init();
+        Vars.mods.getScripts().runConsole("this.aimain = function(){return Vars.mods.getMod(\"ai-bot\").main;}");
+        Vars.mods.getScripts().runConsole("this.ai = function(t){return this.aimain().ais.get(t);}");
+        Vars.mods.getScripts().runConsole("this.measure = function(t){Vars.mods.getMod(\"ai-bot\").main.test = t; return Vars.mods.getMod(\"ai-bot\").main.measure();}");
+        BlockCategories.init();
     }
+
 
     //register commands that run on the server
     @Override
@@ -145,7 +165,7 @@ public class AIGlobalControl extends Plugin{
             }
         });
 
-        handler.<Player>register("testconveyor", "<team> <x> <y>", "make an ai draw a conveyor to the core.", (args, player) -> {
+        handler.<Player>register("testconvext", "<team> <x> <y>", "make an ai draw a conveyor to the core.", (args, player) -> {
             Team team = getTeam(args[0]);
             if(team!=null){
                 try{
@@ -155,6 +175,48 @@ public class AIGlobalControl extends Plugin{
                 }
             }
         });
+        handler.<Player>register("testconv", "make an ai draw a conveyor to the core.", (args, player) -> {
+            Team team = player.team();
+            if(team!=null){
+                try{
+                    ais.get(team).testMakePath((int)(player.unit().x/8), (int)(player.unit().y/8));
+                }catch(NumberFormatException nfe){
+                    Call.sendMessage("[scarlet] Error: Coordinates ("+(int)(player.unit().x/8)+","+(int)(player.unit().y/8)+") were unable to be parsed");
+                }
+            }
+        });
+
+        handler.<Player>register("team", "<team>", "change team.", (args, player) -> {
+            Team team = getTeam(args[0]);
+            if(team!=null){
+                player.team(team);
+            }
+        });
+
+        handler.<Player>register("block", "<team> <block> <x> <y>", "make a bot place block", (args, player) -> {
+            Team team = getTeam(args[0]);
+            args[1] = args[1].trim().toLowerCase(Locale.ROOT);
+            Block b = content.block(args[1]);
+            if(b==null){
+                Call.sendMessage("[scarlet] Error: Block ("+args[1]+") was not found");
+                return;
+            }
+            if(team==null){
+                Call.sendMessage("[scarlet] Error: Team ("+args[0]+") was not found");
+                return;
+            }
+            var ai = ais.get(team);
+            Structure its = new Structure(ai);
+            int x = Integer.parseInt(args[2]);
+            int y = Integer.parseInt(args[3]);
+            its.addBlock(b,x,y);
+            if(its.isComplete()){
+               return;
+            }
+            ai.requests.add(new BuildRequest(ai,(bb)->0f,1,its));
+            ai.structures.add(its);
+        });
+
 
         handler.register("fillstuff", "<team>", "fills core with a bit of stuff.", (args, player) -> {
             Team team = getTeam(args[0]);
@@ -162,6 +224,13 @@ public class AIGlobalControl extends Plugin{
                for(Item i:content.items()) {
                    team.core().items.add(i,team.core().storageCapacity);
                }
+            }
+        });
+
+        handler.register("debugmap", "<team>", "ChunkedStructureMap debug.", (args, player) -> {
+            Team team = getTeam(args[0]);
+            if(team!=null){
+                ais.get(team).map.debug();
             }
         });
     }

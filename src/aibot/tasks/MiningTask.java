@@ -1,7 +1,7 @@
 package aibot.tasks;
 
 import aibot.*;
-import aibot.analysers.*;
+import aibot.util.*;
 import arc.math.*;
 import arc.math.geom.*;
 import mindustry.*;

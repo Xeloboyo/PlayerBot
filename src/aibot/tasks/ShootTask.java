@@ -1,8 +1,8 @@
 package aibot.tasks;
 
 import aibot.*;
+import aibot.util.*;
 import arc.math.geom.*;
-import mindustry.*;
 import mindustry.gen.*;
 
 public class ShootTask extends AITask{

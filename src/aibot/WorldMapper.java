@@ -1,9 +1,8 @@
 package aibot;
 
-import aibot.Utils.*;
 import aibot.analysers.*;
+import aibot.util.*;
 import arc.struct.*;
-import arc.util.*;
 import mindustry.content.*;
 import mindustry.core.*;
 import mindustry.gen.*;

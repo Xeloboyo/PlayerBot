@@ -27,20 +27,17 @@ import mindustry.world.blocks.storage.StorageBlock.*;
 import mindustry.world.blocks.storage.Unloader.*;
 
 import static aibot.AIGlobalControl.mapper;
+import static aibot.BlockCategories.*;
 import static mindustry.Vars.world;
 
 public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
     //static ObjectSet<Block> emitter = new ObjectSet<>(); //blocks that can emit items (conveyors are not allowed to path next to them normally)
     //static ObjectSet<Block> accepter = new ObjectSet<>(); //blocks that can accept any item (conveyors are not allowed to unintentionally insert items in)
-    static ObjectSet<Block> conveyor = new ObjectSet<>(); // conveyors.
-    static ObjectSet<Block> bridge = new ObjectSet<>(); // bridges
-    static ObjectSet<Block> empty = new ObjectSet<>(); // blocks that are effectively air (incl. air). e.g boulders.
-    static ObjectMap<Block,Func<Building,Item[]>> emitterType = new ObjectMap<>();
 
     public Boolf<Block> emitter =  b->b.outputsItems();
-    public Boolf<Block> accepter =  b->b.acceptsItems;
+    public Boolf<Block> accepter =  b->b.acceptsItems && !(b instanceof GenericCrafter); // crafters cant be polluted.?.
 
-    static IntMap<Float> itemcost = new IntMap<>();
+
 
     public ObjectSet<Item> allowedItems = new ObjectSet<>();
 
@@ -56,44 +53,21 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
     short touchingemitter = 0;
     boolean touchingAcceptor = false;
 
-    public static void init(){
-        //not individual blocks to have better compatibility with mods
-        for(Block b:Vars.content.blocks()){
-            if (b instanceof Conveyor){
-                conveyor.add(b);
-            }
-            if (b instanceof ItemBridge){
-                bridge.add(b);
-            }
-            if (b instanceof AirBlock || (b instanceof Prop && !b.solid)){
-                empty.add(b);
-            }
-            if (b instanceof Drill){
-                emitterType.put(b,(build)->{return new Item[]{((DrillBuild)build).dominantItem};});
-            }
-            if (b instanceof GenericCrafter crafter){
-                emitterType.put(b,(build)-> new Item[]{ crafter.outputItem.item});
-            }
-            if (b instanceof Unloader){
-                emitterType.put(b,(build)->{return new Item[]{((UnloaderBuild)build).config()};});
-            }
-            if (b instanceof ItemSource){
-                emitterType.put(b,(build)->{return new Item[]{((ItemSourceBuild)build).config()};});
+    public float jumpCost = 9;
+
+
+    //todo: when target is a structure, collect all points of relevant structures and
+
+    ConveyorPathfinder(){
+        this(4);
+    }
+    ConveyorPathfinder(int largestJump){
+        dirs = new int[4*largestJump][];
+        for(int i = 1;i<=largestJump;i++){
+            for(int d = 0;d<4;d++){
+                dirs[d+(i-1)*4] = new int[]{Geometry.d4x(d)*i,Geometry.d4y(d)*i};
             }
         }
-        //relative cost, real cost is influenced by the availability and convenience of items
-        itemcost.put(Items.sand.id,0.8f);
-        itemcost.put(Items.copper.id,0.4f);
-        itemcost.put(Items.lead.id,0.6f);
-        itemcost.put(Items.coal.id,1.0f);
-        itemcost.put(Items.scrap.id,0.8f);
-        itemcost.put(Items.titanium.id,1.0f);
-        itemcost.put(Items.thorium.id,4.0f); // only ore that cannot be mined by units so yeh
-
-
-    }
-    ConveyorPathfinder(){
-        dirs = new int[][]{{1,0},{0,1},{-1,0},{0,-1}};
         recalcLens();
     }
 
@@ -128,56 +102,7 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
         if(bridge.contains(b.block)){
             return ((ItemBridgeBuild)w.tile(b.x,b.y).build).link != -1;
         }else if(accepter.get(b.block)){
-            return true;
-        }
-        return false;
-    }
-    public boolean emitter(int fx,int fy,int x,int y,boolean allowAcceptedItems, World w){
-        return emitter(block(x,y,w),fx,fy,allowAcceptedItems,w);
-    }
-    public boolean emitter(Stile b, int fx,int fy,boolean allowAcceptedItems,World w){
-        if(b ==null || b==air || b==solid){
-            return false;
-        }
-        if(!b.block.update || w.tile(b.x,b.y).build == null){
-            return false;
-        }
-        if(bridge.contains(b.block)){
-            if(w.tile(b.x,b.y).build instanceof ItemBridgeBuild ibb){
-                if(ibb.link != -1){ // only bridge ends emit
-                    return false;
-                }else{
-                    //but not behind in that direction.
-
-                    for(int i =0;i<ibb.incoming.size;i++){
-                        int inc = ibb.incoming.get(i);
-                        var tile = world.tile(inc);
-                        if ((b.x-tile.x)*(b.x-fx) + (b.y-tile.y)*(b.y-fy)>0){
-                            return  false;
-                        }
-                    }
-                    return true;
-
-                }
-            }
-            return true;
-        }else if(conveyor.contains(b.block)){ //conveyor ends only emit in the direction
-            int r = w.tile(b.x,b.y).build.rotation;
-            return b.x + dirs[r][0] == fx && b.y + dirs[r][1] == fy;
-        }else if(emitter.get(b.block)){
-            if(allowAcceptedItems && !allowedItems.isEmpty()){
-                var func = emitterType.get(b.block);
-                if(func!=null){
-                    var items = func.get(w.tile(b.x,b.y).build);
-                    for(Item item:items){
-                        if(!allowedItems.contains(item)){
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-            }
-            return true;
+            return !isDestination(b.x,b.y,0,0,w);
         }
         return false;
     }
@@ -202,7 +127,6 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
             }
         }
         totalcost += mapper.threatAnalyser.get(x,y).getGroundDps(team,true);
-
         return totalcost;
     }
 
@@ -245,10 +169,11 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
         // -pathing for phase conveyors
         // -liquids
 
-        index = i;
-        if(isDestination(nx,ny,0,0,w)){
-            return -999;
-        }
+
+        int r = i%4;
+        index = r;
+        boolean isNeighbour = Math.abs(nx-prevNode.x) + Math.abs(ny-prevNode.y)==1;
+
         //cannot revert back on itself
         if(prevNode.prev != null){
             if(nx == prevNode.prev.x && nx == prevNode.prev.y){
@@ -257,27 +182,54 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
         }
         //junctions must carry on the direction
         if(prevNode.block == Blocks.junction){
-            if(dirs[i][0] != prevNode.dirx || dirs[i][1] != prevNode.diry){
+            if(dirs[r][0] != prevNode.dirx || dirs[r][1] != prevNode.diry|| !isNeighbour){
                 return maxcost + 1;
             }
         }
+
         float minmovecost = 1;
         float movecost = minmovecost;
         type = Blocks.conveyor;
         touchingemitter = 0;
         touchingAcceptor = false;
-        boolean isBlocked = false;
-        boolean junction_failed = true;
+
+        if(isDestination(nx,ny,0,0,w) && isNeighbour){
+            if(!prevNode.touchingAccepter){
+               return -999;
+            }
+        }
+
         Stile here = block(nx,ny,w);
 
+        //if the tile isn't adjacent then it is a bridge.
+        if(!isNeighbour){
+            type = Blocks.itemBridge;
+            if(impassable(nx, ny, w)){
+                return maxcost + 1;
+            }
+            movecost *= jumpCost * (prevNode.block!=Blocks.itemBridge?2:1); //todo: ok at some point wed have to handle the phase bridges
+
+            if(accepter(nx + dirs[r][0], ny + dirs[r][1], w) ||
+               accepter(nx - dirs[r][1], ny + dirs[r][0], w) ||
+               accepter(nx + dirs[r][1], ny - dirs[r][0], w)){
+                touchingAcceptor = true;
+            }
+        }
+
+        boolean isBlocked = false;
+        boolean junction_failed = true;
+        boolean tunneled = false;
         nobridge: {
+            if(!isNeighbour){
+                break nobridge;
+            }
             //if theres a conveyor here try to junction.
-            if(conveyor.contains(here.block) && Vars.world.tile(nx, ny).build.team == team){
-                if(here.rotation == i){
+            if(conveyor.contains(here.block)){
+                if(here.rotation == r){
                     isBlocked = true; break nobridge;
                 }
-                int ax = nx + dirs[i][0];
-                int ay = ny + dirs[i][1];
+                int ax = nx + dirs[r][0];
+                int ay = ny + dirs[r][1];
                 if(!inBounds(ax, ay, w)){
                     return maxcost + 1;
                 }
@@ -293,8 +245,8 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
 
                 //if theres a junction there, tunnel through the junction to the other side
                 while(block(nx, ny, w).block == Blocks.junction){
-                    int ax = nx + dirs[i][0];
-                    int ay = ny + dirs[i][1];
+                    int ax = nx + dirs[r][0];
+                    int ay = ny + dirs[r][1];
                     if(!inBounds(ax, ay, w)){
                         return maxcost + 1;
                     }
@@ -303,6 +255,7 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
                         ny = oy;
                         changepos.set(ox, oy);
                         junction_failed = true;
+                        tunneled = false;
                         break;
                         //if otherside is blocked then revert
                     }
@@ -310,6 +263,7 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
                     ny = ay;
                     changepos.set(ax, ay);
                     junction_failed = false;
+                    tunneled = true;
                 }
                 //check if the front is just blocked lmao
                 isBlocked = impassable(nx,ny,w);
@@ -317,16 +271,18 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
                     break nobridge;
                 }
                 //die if emitter in front
-                if(emitter(nx,ny,nx + dirs[i][0], ny + dirs[i][1], true,w)){
+                if(emitter(nx,ny,r, allowedItems) == bad_emitter){
                     isBlocked = true; break nobridge;
                 }else{
                     int side = 0;
                     float mcostadd = 0;
                     //disallow any placed junctions allowing adjacent buildings to pollute each other.
-                    Stile left = block(nx - dirs[i][1], ny + dirs[i][0],w);
-                    Stile right = block(nx + dirs[i][1], ny - dirs[i][0],w);
+                    Stile left = block(nx - dirs[r][1], ny + dirs[r][0],w);
+                    Stile right = block(nx + dirs[r][1], ny - dirs[r][0],w);
+                    int leftemmitter = emitter(nx,ny,leftOf(r),allowedItems);
+                    int rightemmitter = emitter(nx,ny,rightOf(r),allowedItems);
 
-                    if(emitter(left,nx,ny,false, w)){
+                    if(leftemmitter != no_emitter){
                         if(accepter(right, w)){
                             isBlocked = true; break nobridge;
                         }else{
@@ -334,7 +290,8 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
                         }
                         side++;
                     }
-                    if(emitter(right,nx,ny,false, w)){
+
+                    if(rightemmitter != no_emitter){
                         if(accepter(left, w)){
                             isBlocked = true; break nobridge;
                         }else{
@@ -343,13 +300,12 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
                         side++;
                     }
 
-                    if(side >0){
-                        //just place junction if it wont interfere and at least one side is an emitter
+                    if(side >0 && !(leftemmitter == allowed_emitter && rightemmitter == allowed_emitter)){
+                        //just place junction if it wont interfere and at least one side is an emitter that has a illegal item
                         type = Blocks.junction;
                         movecost = minmovecost * 2 + mcostadd;
                     }
                 }
-
             }
         }
         //if going through the junctions is illegal then this path is likely fucked.
@@ -358,42 +314,13 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
         }
         //cannot have the end of the bridge at the previous spot bc the previous spot was feeding into something.
         //so a bridge check is forced here.
-        if(prevNode.touchingAccepter){
-            junction_failed = true;
-            isBlocked = true;
-            type = Blocks.conveyor;
+        if(prevNode.touchingAccepter && type != Blocks.itemBridge){
+            return maxcost + 1;
         }
 
-        //if this tile is unbuildable attempt to bridge.
+        //if this tile is unbuildable just die.
         if(type == Blocks.conveyor && isBlocked){
-            int ax = nx + dirs[i][0];
-            int ay = ny + dirs[i][1];
-            for(int z = 0; z < 3; z++){
-                int lx = ax + dirs[i][0] * z;
-                int ly = ay + dirs[i][1] * z;
-                if(!impassable(lx, ly, w)){
-                    //makes sure theres nothing that would absorb bridge items unintentionally
-                    //todo: what if the accepter is the target.
-                    if(accepter(lx + dirs[i][0], ly + dirs[i][1], w) ||
-                    accepter(lx - dirs[i][1], ly + dirs[i][0], w) ||
-                    accepter(lx + dirs[i][1], ly - dirs[i][0], w)){
-                        if(z<2){
-                            continue;
-                        }
-                        touchingAcceptor = true;
-                    }
-                        type = Blocks.itemBridge;
-                        movecost = minmovecost * 12;
-                        nx = lx;
-                        ny = ly;
-                        changepos.set(lx, ly);
-                        break;
-
-                }
-            }
-            if(type == Blocks.conveyor){
-                return maxcost + 1;
-            }
+            return maxcost + 1;
         }
 
         //bridge will record where it touched a emitter. If it needs to bridge again, it can only bridge in the same direction as the emitter.
@@ -406,8 +333,8 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
                     return maxcost + 1;
                 }
             }
-            for(int z = 0; z < dirs.length; z++){
-                if(emitter(nx,ny,nx + dirs[z][0], ny + dirs[z][1],true,w)){
+            for(int z = 0; z < 4; z++){
+                if(emitter(nx,ny,z,allowedItems)==bad_emitter){
                     touchingemitter |= 1<<z;
                 }
             }
@@ -415,7 +342,7 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
 
         float addedcost = movecost;
         if(prevNode.prev != null){
-            float e = prevNode.dirx != dirs[i][0] || prevNode.diry != dirs[i][1] ? 0.5f : 0;
+            float e = (prevNode.dirx * dirs[i][0] + prevNode.diry * dirs[i][1])<=0 ? 0.5f : 0;
             addedcost += e;
         }
         //todo: effecient way to get whether its inside a build range
@@ -461,6 +388,7 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
             forward = n;
         }
         nodes.remove(nodes.get(0));
+        nodes.reverse();
     }
 
     @Override

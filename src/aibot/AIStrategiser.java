@@ -5,6 +5,7 @@ import aibot.analysers.OreAnalyser.*;
 import aibot.analysers.TeamAnalyser.*;
 import aibot.analysers.TeamAnalyser.TeamStats.*;
 import aibot.structure.*;
+import aibot.util.*;
 import arc.func.*;
 import arc.graphics.*;
 import arc.math.*;
@@ -44,7 +45,7 @@ public class AIStrategiser{
     //emergency core defense
     public ObjectMap<CoreBuild, Float> corehps = new ObjectMap<>();
     //structures
-    public ArrayList<Structure> structures= new ArrayList<>();
+    public Seq<Structure> structures= new Seq<>();
     //analysers
     public TeamStats teamStats;
     //base planning
@@ -129,7 +130,7 @@ public class AIStrategiser{
                 }
                 if(corehps.get(cb)>cb.health){
                     if(Utils.target(team,cb.x,cb.y,200,true,true)!=null){
-                        DefendRequest dr = new DefendRequest(this,(e)->2.0f-(e.defend.health/e.defend.maxHealth),1,cb);
+                        DefendRequest dr = new DefendRequest(this,(e)->2.0f-(e.defend.health/e.defend.maxHealth),(int)Math.max(1,controllers.size*0.7f),cb);
                         if(!requests.contains(dr)){
                             requests.add(dr);
                         }
@@ -162,9 +163,15 @@ public class AIStrategiser{
                     Structure testStructure = new Structure(this);
                     for(int i = closest.minx;i<=closest.maxx;i++){
                         for(int j = closest.miny;j<=closest.maxy;j++){
-                           if(j%2==0 && (i%5==0 || i%5==2)){
-                               if(Build.validPlace(Blocks.mechanicalDrill,team,i,j,0)){
-                                   testStructure.addBlock(Blocks.mechanicalDrill, i,j);
+                           if((i%5==0 || i%5==2)){
+                               if(j%2==0){
+                                   if(Build.validPlace(Blocks.mechanicalDrill, team, i, j, 0)){
+                                       testStructure.addBlock(Blocks.mechanicalDrill, i, j);
+                                   }
+                               }else if (j==closest.miny){
+                                   if(Build.validPlace(Blocks.mechanicalDrill, team, i, j-1, 0)){
+                                      testStructure.addBlock(Blocks.mechanicalDrill, i, j-1);
+                                   }
                                }
                            }
                         }
@@ -191,6 +198,7 @@ public class AIStrategiser{
             }
         });
         requests.filter(req->!req.complete);
+        structures.filter(structure -> !structure.blocks.isEmpty());
     }
 
     public int drawPopup(int x,int y, int duration){
@@ -206,13 +214,14 @@ public class AIStrategiser{
     }
 
     public void testMakePath(int fromx, int fromy){
-        ItemLineStructure its = new ItemLineStructure(fromx,fromy,team.core(),new Item[]{Items.copper},this);
-        BuildRequest breq= new BuildRequest(this,(b)->0f,1,its);
-        if(its.complete()){
-            return;
-        }
-        requests.add(breq);
+        ItemLineStructure its = new ItemLineStructure(fromx,fromy,team.core(),this);
+        //BuildRequest breq= new BuildRequest(this,(b)->0f,1,its);
+        //if(its.complete()){
+        //    return;
+        //}
+       // requests.add(breq);
         addStructure(its);
+        its.cheatBuild();
     }
 
     public void addStructure(Structure structure){
@@ -230,11 +239,18 @@ public class AIStrategiser{
     }
 
     public void onBlockDestroyed(Building build,Player p){
+        if(p!=null){
+            map.removeBlock(build.tile.x,build.tile.y);
+        }
     }
 
     public void onBlockCreated(Building build){
         //add it to the list....
         map.addBlock(new Stile(build.block,build.tile.x,build.tile.y, build.config(), (byte)build.rotation));
+    }
+
+    public void onBlockConfigured(Building tile){
+        map.updateDynamic();
     }
 
     //used by controllers, produced by strategisers, high level tasks for ai.
@@ -343,6 +359,7 @@ public class AIStrategiser{
         }
     }
 
+    //placeholdery
     public static class DefendRequest extends AIRequest<DefendRequest>{
         public Building defend;
         {{type = DefendRequest.class;}}
@@ -393,7 +410,7 @@ public class AIStrategiser{
 
         @Override
         public boolean fufilled(){
-            return structure.complete();
+            return structure.isComplete();
         }
     }
 
