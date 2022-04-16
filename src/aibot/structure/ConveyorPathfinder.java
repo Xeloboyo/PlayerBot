@@ -71,13 +71,13 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
         recalcLens();
     }
 
-    public Seq<ConveyorNode> pathfind(int x, int y, Building building, World w){
+    public void startPathfind(int x, int y, Building building, World w){
         target = building;
         team = building.team;
         ai = AIGlobalControl.ais.get(team);
         type = Blocks.conveyor;
         touchingemitter = 0;
-        return pathfind(x,y,building.tile.x,building.tile.y,w);
+        startPathfind(x,y,building.tile.x,building.tile.y,w);
     }
 
     @Override
@@ -425,5 +425,9 @@ public class ConveyorPathfinder extends BuildPathfinder<ConveyorNode>{
             }
             return false;
         }
+    }
+    @Override
+    public String name(){
+       return "conveyor pathfinder";
     }
 }

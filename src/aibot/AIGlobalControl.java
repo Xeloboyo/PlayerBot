@@ -2,6 +2,7 @@ package aibot;
 
 import aibot.AIStrategiser.*;
 import aibot.structure.*;
+import aibot.util.*;
 import arc.*;
 import arc.graphics.*;
 import arc.math.*;
@@ -26,6 +27,7 @@ public class AIGlobalControl extends Plugin{
     public static Seq<AIPlayer> players= new Seq<>();
     public static ObjectMap<Team, AIStrategiser> ais = new ObjectMap<>();
     public static int lastPopup = 0;
+    public static TaskManager manager = new TaskManager();
 
     public static Object test = null;
     //called when game initializes
@@ -33,6 +35,7 @@ public class AIGlobalControl extends Plugin{
     public void init(){
         Events.on(WorldLoadEvent.class,(e)->{
             mapper  = new WorldMapper(Vars.world);
+            manager.clearAll();
             ais.clear();
             Vars.state.teams.getActive().each(t->{
                 ais.put(t.team,new AIStrategiser(t.team));
@@ -83,6 +86,14 @@ public class AIGlobalControl extends Plugin{
             }
         });
 
+        Events.on(UnitDestroyEvent.class, e->{
+            for(var p:players){
+                if(p.unit()== e.unit){
+                    p.spawnWait = 50;
+                }
+            }
+        });
+
         Events.on(BlockBuildBeginEvent.class, e->{
             if(!e.breaking){
                 return;
@@ -115,6 +126,7 @@ public class AIGlobalControl extends Plugin{
             if(mapper!=null){
                 mapper.update();
             }
+            manager.onTick();
             for(AIPlayer player:players){
                 player.update();
                 if(player.team() != player.controller.strategiser.team){
@@ -132,6 +144,7 @@ public class AIGlobalControl extends Plugin{
             if(lastPopup<0){
                 lastPopup = 120;
                 int ypos = 100;
+                Call.infoPopup("Tasks: "+manager.tasks.size,lastPopup/60, Align.topLeft,ypos,0,0,0); ypos += 27;
                 for(Entry<Team, AIStrategiser> ai:ais){
                     ypos += ai.value.drawPopup(0,ypos,lastPopup/60);
                 }
@@ -231,6 +244,12 @@ public class AIGlobalControl extends Plugin{
             Team team = getTeam(args[0]);
             if(team!=null){
                 ais.get(team).map.debug();
+            }
+        });
+
+        handler.register("debugtasks", "", "TaskManager debug.", (args, player) -> {
+            for(var r:manager.tasks.values()){
+                Call.sendMessage(r.name()+": " + Strings.fixed(100*r.amountDone(),1)+"% done");
             }
         });
     }

@@ -34,7 +34,7 @@ public abstract class PlayerPathfinder extends Pathfinder<MoveNode>{
         @Override
         public void pathFind(Point2 from, Point2 to, Seq<Point2> out){
             Unit unit = player.unit();
-            if((Math.abs(to.x-from.x)==1 && Math.abs(to.y-from.y)==1) || unit==null){
+            if((Math.abs(to.x-from.x) + Math.abs(to.y-from.y)<2) || unit==null){
                 out.add(from);
                 out.add(to);
                 return;
@@ -150,7 +150,11 @@ public abstract class PlayerPathfinder extends Pathfinder<MoveNode>{
         isground = u.isGrounded();
         this.cost=cost;
         times = new IntMap<>();
-        Seq<MoveNode> raw =  pathfind(x,y,x2,y2,world);
+        startPathfind(x,y,x2,y2,world);
+        while(!finished){
+            pathfindStep();
+        }
+        Seq<MoveNode> raw = this.finishedpath;
         Seq<Point2> out = new Seq<>();
         for(MoveNode m:raw){
             out.add(new Point2(m.x,m.y));

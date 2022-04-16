@@ -46,6 +46,7 @@ public class AIStrategiser{
     public ObjectMap<CoreBuild, Float> corehps = new ObjectMap<>();
     //structures
     public Seq<Structure> structures= new Seq<>();
+    public Seq<Structure> generatingStructures= new Seq<>();
     //analysers
     public TeamStats teamStats;
     //base planning
@@ -100,6 +101,14 @@ public class AIStrategiser{
         //adding req
         tick++;
         totaltick++;
+        for(var gen:generatingStructures){
+            if(!gen.generating){
+                gen.onGenerated();
+                addStructure(gen);
+                gen.onGenerated.run();
+            }
+        }
+        generatingStructures.filter(gen->gen.generating);
         if(tick>updatedelay){
             tick=0;
             //mining req
@@ -221,10 +230,14 @@ public class AIStrategiser{
         //}
        // requests.add(breq);
         addStructure(its);
-        its.cheatBuild();
+        its.onGenerated= its::cheatBuild;
     }
 
     public void addStructure(Structure structure){
+        if(structure.generating){
+            generatingStructures.add(structure);
+            return;
+        }
         if(structure.blocks.isEmpty()){
             return;
         }

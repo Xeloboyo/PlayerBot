@@ -42,6 +42,7 @@ public class AIPlayer{
     boolean defaultTask = false;
     public static int maxPlanSize = 300;
     public BuildPlan[] bp = new BuildPlan[maxPlanSize];
+    int spawnWait = 50;
 
     AIPlayer(String name, Color color, String ip){
         this(name,color,ip,new Idler());
@@ -91,6 +92,13 @@ public class AIPlayer{
 
 
     public void update(){
+        if(spawnWait>0){
+            spawnWait --;
+            if(pos!=null){
+                pos.set(unit());
+            }
+            return;
+        }
         sendUpdate();
         if(pos!=null){
             pos.set(unit());

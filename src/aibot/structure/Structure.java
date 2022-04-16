@@ -3,6 +3,7 @@ package aibot.structure;
 import aibot.*;
 import aibot.structure.ChunkedStructureMap.*;
 import aibot.structure.ChunkedStructureMap.StructureBlock.*;
+import aibot.util.*;
 import arc.struct.*;
 import mindustry.*;
 import mindustry.game.Schematic.*;
@@ -14,6 +15,10 @@ public class Structure{
     public Seq<StructureBlock> blocks = new Seq<>();
     public AIStrategiser teamai;
     public int minx=99999,miny=99999,maxx,maxy;
+
+    public boolean generating = false;
+    public Task generatingTask = null;
+    public Runnable onGenerated = ()->{};
 
 
     public Structure(AIStrategiser teamai){
@@ -46,6 +51,8 @@ public class Structure{
         blocks.remove(b);
         recalcBounds();
     }
+    //called by the strategiser.
+    public void onGenerated(){};
 
 
 
